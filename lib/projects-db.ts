@@ -1,38 +1,99 @@
+import { sql } from './db';
+
 export interface Project {
   id: number;
   title: string;
   description: string;
-  type: "opensource" | "school";
+  type: 'opensource' | 'school';
   technologies: string[];
   link?: string;
 }
+const ITEMS_PER_PAGE = 6;
 
-export const projects: Project[] = [
-  {
-    id: 1,
-    title: "Fifth Version Website",
-    description: "A website exploring creativity and technology.",
-    type: "opensource",
-    technologies: ["Next.js", "TypeScript", "Tailwind CSS"],
-    link: "https://github.com/ssaliarafat",
-  },
-  {
-    id: 2,
-    title: "Film Explorer",
-    description: "A project for exploring films.",
-    type: "school",
-    technologies: ["JavaScript", "HTML", "CSS"],
-  },
-];
-
-export function getProjects(type?: string | null): Project[] {
+export async function getProjects(
+  type?: string | null
+): Promise<Project[]> {
   if (type) {
-    return projects.filter((project) => project.type === type);
+    const rows = await sql`
+      SELECT * FROM projects
+      WHERE type = ${type}
+      ORDER BY id
+    `;
+    return rows as Project[];
   }
 
-  return projects;
+  const rows = await sql`
+    SELECT * FROM projects ORDER BY id
+  `;
+
+  return rows as Project[];
 }
 
-export function getProjectById(id: number): Project | null {
-  return projects.find((project) => project.id === id) ?? null;
+export async function getProjectById(
+  id: number
+): Promise<Project | null> {
+  const rows = await sql`
+    SELECT * FROM projects WHERE id = ${id}
+  `;
+
+  return (rows[0] as Project) ?? null;
+}
+
+export async function fetchFilteredProjects(
+  query: string,
+  currentPage: number
+): Promise<Project[]> {
+  const sanitizedQuery = query.trim().slice(0, 100);
+  const page = Math.max(1, Math.floor(currentPage) || 1);
+  const offset = (page - 1) * ITEMS_PER_PAGE;
+
+  if (sanitizedQuery) {
+    const searchPattern = `%${sanitizedQuery}%`;
+
+    const rows = await sql`
+      SELECT * FROM projects
+      WHERE title ILIKE ${searchPattern}
+        OR description ILIKE ${searchPattern}
+        OR array_to_string(technologies, ' ') ILIKE ${searchPattern}
+      ORDER BY id
+      LIMIT ${ITEMS_PER_PAGE}
+      OFFSET ${offset}
+    `;
+
+    return rows as Project[];
+  }
+
+  const rows = await sql`
+    SELECT * FROM projects
+    ORDER BY id
+    LIMIT ${ITEMS_PER_PAGE}
+    OFFSET ${offset}
+  `;
+
+  return rows as Project[];
+}
+
+export async function fetchProjectsPages(
+  query: string
+): Promise<number> {
+  const sanitizedQuery = query.trim().slice(0, 100);
+
+  if (sanitizedQuery) {
+    const searchPattern = `%${sanitizedQuery}%`;
+
+    const rows = await sql`
+      SELECT COUNT(*) AS total FROM projects
+      WHERE title ILIKE ${searchPattern}
+        OR description ILIKE ${searchPattern}
+        OR array_to_string(technologies, ' ') ILIKE ${searchPattern}
+    `;
+
+    return Math.ceil(Number(rows[0].total) / ITEMS_PER_PAGE);
+  }
+
+  const rows = await sql`
+    SELECT COUNT(*) AS total FROM projects
+  `;
+
+  return Math.ceil(Number(rows[0].total) / ITEMS_PER_PAGE);
 }

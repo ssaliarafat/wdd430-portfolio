@@ -1,0 +1,60 @@
+"use client";
+
+import {
+  usePathname,
+  useSearchParams,
+  useRouter,
+} from "next/navigation";
+
+interface PaginationProps {
+  totalPages: number;
+}
+
+export default function Pagination({
+  totalPages,
+}: PaginationProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const currentPage = Number(searchParams.get("page")) || 1;
+
+  function createPageURL(pageNumber: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", pageNumber.toString());
+
+    return `${pathname}?${params.toString()}`;
+  }
+
+  function handlePageChange(pageNumber: number) {
+    router.replace(createPageURL(pageNumber));
+  }
+
+  if (totalPages <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="mt-8 flex items-center justify-center gap-4">
+      <button
+        onClick={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage <= 1}
+        className="rounded border px-4 py-2 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Previous
+      </button>
+
+      <span>
+        Page {currentPage} of {totalPages}
+      </span>
+
+      <button
+        onClick={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage >= totalPages}
+        className="rounded border px-4 py-2 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Next
+      </button>
+    </div>
+  );
+}
